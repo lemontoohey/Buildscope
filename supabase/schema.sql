@@ -308,6 +308,52 @@ create table if not exists signatures (
   created_at text not null
 );
 
+-- Job Estimator: a library of past custom jobs the matching engine in
+-- lib/estimator.js draws on to estimate a new draft job. Kept separate
+-- from budget_categories/transactions, which track the one build this
+-- install is following day to day. No seed rows inserted here, same as
+-- suppliers/price_book_items above — the sqlite and Google Drive backends
+-- seed their demo jobs in code (lib/estimator-seed.js) at first boot.
+create table if not exists estimate_jobs (
+  id bigint generated always as identity primary key,
+  name text not null,
+  status text not null default 'draft',
+  description text,
+  floor_area_m2 double precision,
+  storeys integer,
+  construction_type text,
+  quality_level text,
+  site_conditions text,
+  region text,
+  client_name text,
+  estimated_total_cents bigint,
+  estimated_confidence text,
+  actual_total_cents bigint,
+  notes text,
+  created_at text not null,
+  updated_at text not null
+);
+
+create table if not exists estimate_line_items (
+  id bigint generated always as identity primary key,
+  job_id bigint not null references estimate_jobs(id),
+  category_name text not null,
+  estimated_cents bigint,
+  actual_cents bigint,
+  source text not null default 'manual',
+  notes text,
+  sort_order integer not null default 0
+);
+
+create table if not exists estimate_attachments (
+  id text primary key,
+  job_id bigint not null references estimate_jobs(id),
+  filename text not null,
+  mime_type text,
+  file_path text not null,
+  uploaded_at text not null
+);
+
 insert into compliance_items (regime, item, status, sort_order) values
   ('DA / Council', 'Footings inspection booked & passed', 'pending', 0),
   ('DA / Council', 'Slab inspection booked & passed', 'pending', 1),

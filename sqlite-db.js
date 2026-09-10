@@ -255,6 +255,53 @@ db.exec(`
     linked_id INTEGER,
     created_at TEXT NOT NULL
   );
+
+  -- Job Estimator: a library of past custom jobs (once marked 'completed'
+  -- with a real total and category actuals) that the matching engine in
+  -- lib/estimator.js draws on to estimate a new draft job. Deliberately its
+  -- own table, decoupled from budget_categories/transactions above — those
+  -- track the ONE build this install is following day to day; estimate_jobs
+  -- is a library spanning many jobs, past and prospective, the way a
+  -- builder quoting custom work actually needs.
+  CREATE TABLE IF NOT EXISTS estimate_jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft',
+    description TEXT,
+    floor_area_m2 REAL,
+    storeys INTEGER,
+    construction_type TEXT,
+    quality_level TEXT,
+    site_conditions TEXT,
+    region TEXT,
+    client_name TEXT,
+    estimated_total_cents INTEGER,
+    estimated_confidence TEXT,
+    actual_total_cents INTEGER,
+    notes TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS estimate_line_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id INTEGER NOT NULL REFERENCES estimate_jobs(id),
+    category_name TEXT NOT NULL,
+    estimated_cents INTEGER,
+    actual_cents INTEGER,
+    source TEXT NOT NULL DEFAULT 'manual',
+    notes TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS estimate_attachments (
+    id TEXT PRIMARY KEY,
+    job_id INTEGER NOT NULL REFERENCES estimate_jobs(id),
+    filename TEXT NOT NULL,
+    mime_type TEXT,
+    file_path TEXT NOT NULL,
+    uploaded_at TEXT NOT NULL
+  );
 `);
 
 // --- Lightweight column migrations -----------------------------------
@@ -461,6 +508,48 @@ function seed() {
         l.sku_hint,
         l.sort_order
       );
+    }
+  }
+
+  // Job Estimator demo data — a handful of invented past jobs so the
+  // matching engine has something to demonstrate against out of the box.
+  // See lib/estimator-seed.js for the "these numbers are made up, replace
+  // them" warning. Only seeded once, same guard as everything above.
+  const estimateJobCount = db.prepare('SELECT COUNT(*) AS n FROM estimate_jobs').get();
+  if (estimateJobCount.n === 0) {
+    const { buildEstimatorTables } = require('./lib/estimator-seed');
+    const seeded = buildEstimatorTables();
+    const insertJob = db.prepare(
+      `INSERT INTO estimate_jobs
+        (id, name, status, description, floor_area_m2, storeys, construction_type, quality_level, site_conditions, region, client_name, estimated_total_cents, estimated_confidence, actual_total_cents, notes, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    for (const j of seeded.estimate_jobs) {
+      insertJob.run(
+        j.id,
+        j.name,
+        j.status,
+        j.description,
+        j.floor_area_m2,
+        j.storeys,
+        j.construction_type,
+        j.quality_level,
+        j.site_conditions,
+        j.region,
+        j.client_name,
+        j.estimated_total_cents,
+        j.estimated_confidence,
+        j.actual_total_cents,
+        j.notes,
+        j.created_at,
+        j.updated_at
+      );
+    }
+    const insertLineItem = db.prepare(
+      'INSERT INTO estimate_line_items (id, job_id, category_name, estimated_cents, actual_cents, source, notes, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    );
+    for (const li of seeded.estimate_line_items) {
+      insertLineItem.run(li.id, li.job_id, li.category_name, li.estimated_cents, li.actual_cents, li.source, li.notes, li.sort_order);
     }
   }
 }

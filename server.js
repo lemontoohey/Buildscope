@@ -86,6 +86,17 @@ const {
   handleXeroDisconnect,
 } = require('./routes/settings');
 const { handleXeroPushTransaction } = require('./routes/xero');
+const {
+  handleEstimatorPage,
+  handleEstimatorNew,
+  handleEstimatorDetail,
+  handleEstimatorUpdate,
+  handleEstimatorStatus,
+  handleEstimatorGenerate,
+  handleEstimatorLineItemUpsert,
+  handleEstimatorAttachmentUploadApi,
+  handleEstimatorAttachmentFile,
+} = require('./routes/estimator');
 
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -159,6 +170,17 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'GET' && pathname === '/schedule') {
       return await handleSchedulePage(req, res, helpers, flash);
+    }
+    if (req.method === 'GET' && pathname === '/estimator') {
+      return await handleEstimatorPage(req, res, helpers, flash);
+    }
+    if (req.method === 'GET' && pathname.match(/^\/estimator\/(\d+)\/attachments\/([^/]+)$/)) {
+      const m = pathname.match(/^\/estimator\/(\d+)\/attachments\/([^/]+)$/);
+      return await handleEstimatorAttachmentFile(req, res, m[1], m[2]);
+    }
+    if (req.method === 'GET' && pathname.match(/^\/estimator\/(\d+)$/)) {
+      const m = pathname.match(/^\/estimator\/(\d+)$/);
+      return await handleEstimatorDetail(req, res, helpers, m[1], flash);
     }
     if (req.method === 'GET' && pathname.startsWith('/public/')) {
       const name = path.basename(pathname);
@@ -271,6 +293,19 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && pathname === '/schedule/cascade') {
       return await handleScheduleCascade(req, res, helpers);
     }
+    if (req.method === 'POST' && pathname === '/estimator/new') {
+      return await handleEstimatorNew(req, res, helpers);
+    }
+    if (req.method === 'POST') {
+      const estUpdateMatch = pathname.match(/^\/estimator\/(\d+)\/update$/);
+      if (estUpdateMatch) return await handleEstimatorUpdate(req, res, estUpdateMatch[1]);
+      const estStatusMatch = pathname.match(/^\/estimator\/(\d+)\/status$/);
+      if (estStatusMatch) return await handleEstimatorStatus(req, res, estStatusMatch[1]);
+      const estGenerateMatch = pathname.match(/^\/estimator\/(\d+)\/generate$/);
+      if (estGenerateMatch) return await handleEstimatorGenerate(req, res, estGenerateMatch[1]);
+      const estLineItemMatch = pathname.match(/^\/estimator\/(\d+)\/line-items\/upsert$/);
+      if (estLineItemMatch) return await handleEstimatorLineItemUpsert(req, res, estLineItemMatch[1]);
+    }
     if (req.method === 'POST' && pathname === '/formulate/new') {
       return await handleFormulateNew(req, res, helpers);
     }
@@ -320,6 +355,10 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'POST' && pathname === '/api/documents/upload') {
       return await handleDocumentUploadApi(req, res, helpers);
+    }
+    if (req.method === 'POST') {
+      const estAttachMatch = pathname.match(/^\/api\/estimator\/(\d+)\/attachments\/upload$/);
+      if (estAttachMatch) return await handleEstimatorAttachmentUploadApi(req, res, helpers, estAttachMatch[1]);
     }
     if (req.method === 'GET' && pathname === '/api/plan-measure/state') {
       return await handlePlanMeasureState(req, res, helpers, query);
