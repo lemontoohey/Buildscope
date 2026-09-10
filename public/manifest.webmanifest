@@ -1,0 +1,14 @@
+{
+  "name": "Owner-Build Tracker",
+  "short_name": "Build Tracker",
+  "description": "Owner-build tracker — budget, materials, diary, schedule and compliance in one place.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#4f6070",
+  "icons": [
+    { "src": "/public/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/public/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
