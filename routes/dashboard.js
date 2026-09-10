@@ -44,6 +44,11 @@ async function handleDashboard(req, res, { sendHtml }) {
 
   const remaining = totals.budgeted - totals.actual;
   const remainingClass = remaining < 0 ? 'text-red-600' : 'text-emerald-700';
+  // A card opts into the intensified brown-halo shadow (see lib/layout.js)
+  // when what it's showing genuinely needs attention -- over budget, or an
+  // overdue stage -- so the ambient shadow itself carries some of that
+  // signal, not just the coloured text/badge next to it.
+  const remainingCardClass = remaining < 0 ? ' card-alert' : '';
 
   // Site status signals — pulled from Phase 2 modules so the dashboard flags
   // things worth attention without having to visit each page.
@@ -144,14 +149,14 @@ async function handleDashboard(req, res, { sendHtml }) {
         <div class="text-xs uppercase text-slate-500">Total spent</div>
         <div class="text-xl font-semibold">${centsToDisplay(totals.actual)}</div>
       </div>
-      <div class="bg-white rounded-lg border border-slate-200 p-4">
+      <div class="bg-white rounded-lg border border-slate-200 p-4${remainingCardClass}">
         <div class="text-xs uppercase text-slate-500">Remaining</div>
         <div class="text-xl font-semibold ${remainingClass}">${centsToDisplay(remaining)}</div>
       </div>
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-      <a href="/schedule" class="bg-white rounded-lg border border-slate-200 p-4 hover:border-slate-300">
+      <a href="/schedule" class="bg-white rounded-lg border border-slate-200 p-4 hover:border-slate-300${overdueStages.length ? ' card-alert' : ''}">
         <div class="text-xs uppercase text-slate-500">Next stage</div>
         <div class="text-lg font-semibold">${nextStage ? escapeHtml(nextStage.name) : 'All stages done 🎉'}</div>
       </a>

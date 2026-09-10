@@ -175,8 +175,12 @@ async function handleSchedulePage(req, res, { sendHtml }, flash) {
         (st) => `<option value="${st}" ${st === s.status ? 'selected' : ''}>${STATUS_LABELS[st]}</option>`
       ).join('');
       const dur = daysInclusive(s.planned_start, s.planned_end);
+      // Same overdue test as stageBadge()/the waterfall chart -- reused
+      // here to give the card itself the intensified brown-halo shadow
+      // from lib/layout.js when a stage is genuinely running late.
+      const overdue = s.status !== 'done' && s.planned_end && todayIso() > s.planned_end;
 
-      return `<form method="post" action="/schedule/update" class="bg-white rounded-lg border border-slate-200 p-4 mb-3">
+      return `<form method="post" action="/schedule/update" class="bg-white rounded-lg border border-slate-200 p-4 mb-3${overdue ? ' card-alert' : ''}">
         <input type="hidden" name="stage_id" value="${s.id}" />
         <div class="flex items-center justify-between mb-3">
           <span class="font-semibold">${escapeHtml(s.name)}${dur ? ` <span class="text-xs font-normal text-slate-500">· ${dur} days planned</span>` : ''}</span>

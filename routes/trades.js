@@ -63,7 +63,7 @@ async function handleTradesPage(req, res, { sendHtml }, flash) {
     <p class="text-sm text-slate-600 mb-4">Insurance expiry is flagged automatically — amber inside 30 days, red once it's lapsed.</p>
     ${alertBanner}
 
-    <div class="bg-white rounded-lg border border-slate-200 p-4 mb-8 overflow-x-auto">
+    <div class="bg-white rounded-lg border border-slate-200 p-4 mb-8 overflow-x-auto${expiringSoon.length ? ' card-alert' : ''}">
       <table class="w-full text-sm">
         <thead>
           <tr class="text-left text-slate-500 border-b border-slate-200">

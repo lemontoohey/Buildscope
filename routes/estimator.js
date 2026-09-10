@@ -15,7 +15,7 @@
 // traceable back to a real job, not a black box.
 
 const { store } = require('../lib/store');
-const { layout } = require('../lib/layout');
+const { layout, planVariantFor } = require('../lib/layout');
 const { escapeHtml, centsToDisplay, dollarsToCents } = require('../lib/render');
 const { readFormBody, redirect, sendJson, notFound } = require('../lib/http');
 const { saveFile, readFile } = require('../lib/file-storage');
@@ -492,7 +492,7 @@ async function handleEstimatorDetail(req, res, { sendHtml }, id, flash) {
     </div>
   `;
 
-  sendHtml(res, layout({ title: job.name, activePath: '/estimator', body, flash, wide: true }));
+  sendHtml(res, layout({ title: job.name, activePath: '/estimator', body, flash, wide: true, planVariant: planVariantFor(job.construction_type) }));
 }
 
 async function handleEstimatorUpdate(req, res, id) {

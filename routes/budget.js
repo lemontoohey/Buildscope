@@ -45,10 +45,15 @@ async function handleBudgetPage(req, res, { sendHtml }, flash) {
     })
     .join('\n');
 
+  // Same brown-halo "this needs attention" shadow (lib/layout.js) as the
+  // dashboard/schedule/trades cards, applied to the whole table when any
+  // category has gone over its budget.
+  const anyOverBudget = categories.some((c) => c.budgeted_cents - c.actual_cents < 0);
+
   const body = `
     <h1 class="text-2xl font-bold mb-6">Budget</h1>
 
-    <div class="bg-white rounded-lg border border-slate-200 p-4 mb-8 overflow-x-auto">
+    <div class="bg-white rounded-lg border border-slate-200 p-4 mb-8 overflow-x-auto${anyOverBudget ? ' card-alert' : ''}">
       <table class="w-full text-sm">
         <thead>
           <tr class="text-left text-slate-500 border-b border-slate-200">
