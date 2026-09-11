@@ -110,12 +110,17 @@ async function handleTransactionNew(req, res, { sendHtml }, query) {
 
 async function handleTransactionCreate(req, res) {
   const form = await readFormBody(req);
+  const categoryId = Number(form.category_id);
+  const txnDate = (form.txn_date || '').trim();
+  if (!Number.isFinite(categoryId) || !txnDate) {
+    return redirect(res, '/transactions/new?flash=' + encodeURIComponent('A category and date are required.'));
+  }
   const amountCents = dollarsToCents(form.amount);
   const gstCents = dollarsToCents(form.gst);
 
   await store.insert('transactions', {
-    category_id: Number(form.category_id),
-    txn_date: form.txn_date,
+    category_id: categoryId,
+    txn_date: txnDate,
     supplier: form.supplier || null,
     description: form.description || null,
     amount_cents: amountCents,

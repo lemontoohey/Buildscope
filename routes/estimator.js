@@ -323,12 +323,14 @@ function generatePanel(job, matchResult) {
         ${
           contributorsRows
             ? `<p class="text-xs font-medium text-slate-500 mb-1">Matched against:</p>
+        <div class="overflow-x-auto">
         <table class="w-full text-xs mb-1">
           <thead><tr class="text-left text-slate-400 border-b border-slate-200">
             <th class="py-1 pr-4 font-medium">Job</th><th class="py-1 pr-4 font-medium">Similarity</th><th class="py-1 pr-4 font-medium">Floor area</th><th class="py-1 pr-4 font-medium text-right">Rate</th><th class="py-1 pr-4 font-medium text-right">Their total</th>
           </tr></thead>
           <tbody>${contributorsRows}</tbody>
-        </table>`
+        </table>
+        </div>`
             : ''
         }
       </div>`;

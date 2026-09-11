@@ -5,6 +5,7 @@ const { daysBetween } = require('./trades');
 const { buildInsights } = require('../lib/insights');
 const { isAiConfigured, reviewEstimate } = require('../lib/ai');
 const xeroAuth = require('../lib/xero-auth');
+const { BUTTON_CLASSES } = require('../lib/theme');
 
 async function handleDashboard(req, res, { sendHtml }) {
   const [rawCategories, transactions, diaryEntries, stages, complianceItems, trades, boqItems] = await Promise.all([
@@ -181,10 +182,10 @@ async function handleDashboard(req, res, { sendHtml }) {
         .join('\n')}
     </div>
 
-    <div class="bg-white rounded-lg border-2 border-purple-200 p-4 mb-8">
+    <div class="bg-white rounded-lg border-2 border-[#9b1b15]/25 p-4 mb-8">
       <div class="flex items-start justify-between gap-3 flex-wrap mb-1">
-        <h2 class="text-lg font-semibold text-purple-900">AI estimate check</h2>
-        <span class="text-xs text-purple-500">Reviews your budget, BOQ and compliance for gaps — run it, don't trust it blindly</span>
+        <h2 class="text-lg font-semibold text-slate-900">AI estimate check</h2>
+        <span class="text-xs text-slate-500">Reviews your budget, BOQ and compliance for gaps — run it, don't trust it blindly</span>
       </div>
       ${
         aiConfigured
@@ -193,7 +194,7 @@ async function handleDashboard(req, res, { sendHtml }) {
                AI is off — <a class="underline" href="/settings">add your API key on the Settings page</a> to use this.
              </div>`
       }
-      <button type="button" id="reviewRunBtn" class="rounded bg-purple-700 hover:bg-purple-800 text-white px-4 py-2 text-sm" ${aiConfigured ? '' : 'disabled'}>
+      <button type="button" id="reviewRunBtn" class="rounded ${BUTTON_CLASSES} px-4 py-2 text-sm" ${aiConfigured ? '' : 'disabled'}>
         Run AI check
       </button>
       <span id="reviewStatus" class="ml-3 text-sm text-slate-600"></span>

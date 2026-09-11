@@ -207,12 +207,17 @@ async function handleMaterialsPage(req, res, { sendHtml }, flash) {
 
 async function handleMaterialNew(req, res) {
   const form = await readFormBody(req);
+  const description = (form.description || '').trim();
+  const categoryId = Number(form.category_id);
+  if (!description || !Number.isFinite(categoryId)) {
+    return redirect(res, '/materials?flash=' + encodeURIComponent('A description and category are required.'));
+  }
   const quantity = form.quantity ? parseFloat(String(form.quantity).replace(/[^0-9.-]/g, '')) : null;
   const unitCostCents = form.unit_cost ? dollarsToCents(form.unit_cost) : null;
 
   await store.insert('boq_items', {
-    category_id: Number(form.category_id),
-    description: form.description,
+    category_id: categoryId,
+    description,
     quantity: Number.isFinite(quantity) ? quantity : null,
     unit: form.unit || null,
     unit_cost_cents: unitCostCents,

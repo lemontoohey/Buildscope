@@ -149,13 +149,13 @@ async function handlePriceBookPage(req, res, { sendHtml }, query, flash) {
             </div>
             ${
               matches.length
-                ? `<table class="w-full text-sm"><thead><tr class="text-left text-slate-500 text-xs">
+                ? `<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-left text-slate-500 text-xs">
                     <th class="py-1 pr-3 font-medium">Supplier</th>
                     <th class="py-1 pr-3 font-medium">Matched catalogue item</th>
                     <th class="py-1 pr-3 font-medium text-right">Rate</th>
                     <th class="py-1 pr-3 font-medium text-right">Extension</th>
                     <th></th>
-                  </tr></thead><tbody>${matchRows}</tbody></table>`
+                  </tr></thead><tbody>${matchRows}</tbody></table></div>`
                 : '<p class="text-xs text-slate-500">No catalogue match — add a rate, or rename the Materials line so it shares words with a catalogue item (e.g. “concrete N32”).</p>'
             }
           </div>`;
@@ -195,12 +195,18 @@ async function handlePriceBookPage(req, res, { sendHtml }, query, flash) {
 
 async function handlePriceBookItemNew(req, res) {
   const form = await readFormBody(req);
+  const supplierId = Number(form.supplier_id);
+  const description = (form.description || '').trim();
+  const unit = (form.unit || '').trim();
+  if (!Number.isFinite(supplierId) || !description || !unit) {
+    return redirect(res, '/price-book?tab=catalogue&flash=' + encodeURIComponent('Supplier, description and unit are required.'));
+  }
   const existing = await store.listAll('price_book_items');
   await store.insert('price_book_items', {
-    supplier_id: Number(form.supplier_id),
+    supplier_id: supplierId,
     sku: form.sku || null,
-    description: form.description,
-    unit: form.unit,
+    description,
+    unit,
     unit_cost_cents: dollarsToCents(form.unit_cost),
     category: form.category || null,
     notes: 'User-entered rate',

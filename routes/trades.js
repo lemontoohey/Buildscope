@@ -120,8 +120,12 @@ async function handleTradesPage(req, res, { sendHtml }, flash) {
 
 async function handleTradeNew(req, res) {
   const form = await readFormBody(req);
+  const name = (form.name || '').trim();
+  if (!name) {
+    return redirect(res, '/trades?flash=' + encodeURIComponent('Give the trade a name first.'));
+  }
   await store.insert('trades', {
-    name: form.name,
+    name,
     trade_type: form.trade_type || null,
     phone: form.phone || null,
     email: form.email || null,

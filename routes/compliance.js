@@ -89,11 +89,15 @@ async function handleComplianceToggle(req, res) {
 
 async function handleComplianceNew(req, res) {
   const form = await readFormBody(req);
+  const item = (form.item || '').trim();
+  if (!item) {
+    return redirect(res, '/compliance?flash=' + encodeURIComponent('Give the checklist item a name first.'));
+  }
   const allItems = await store.listAll('compliance_items');
   const maxOrder = allItems.reduce((m, i) => Math.max(m, i.sort_order ?? 0), 0);
   await store.insert('compliance_items', {
     regime: form.regime || 'Other',
-    item: form.item,
+    item,
     status: 'pending',
     sort_order: maxOrder + 1,
   });
