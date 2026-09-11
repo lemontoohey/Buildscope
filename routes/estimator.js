@@ -422,7 +422,7 @@ function attachmentsSection(job, attachments) {
   return `
     <div class="bg-white rounded-lg border border-slate-200 p-4">
       <h2 class="text-lg font-semibold mb-3">Docs &amp; photos</h2>
-      <p class="text-xs text-slate-500 mb-3">Attach past quotes, invoices or site photos for reference. For now these are filed for you to read — they're not auto-parsed into numbers yet, so enter figures into the breakdown above yourself.</p>
+      <p class="text-xs text-slate-500 mb-3">Attach past quotes, invoices or site photos for reference — these are filed for you to read. For a quote you want read automatically and turned into real Materials numbers, use <a class="text-blue-700 hover:underline" href="/materials/import-quote">Import a quote</a> on the Materials page instead.</p>
       <ul class="mb-4 space-y-1">${rows || '<li class="text-sm text-slate-500">Nothing attached yet.</li>'}</ul>
       <input id="attachInput-${job.id}" type="file" class="block w-full text-sm mb-2" />
       <button id="attachBtn-${job.id}" class="bg-slate-700 hover:bg-slate-800 text-white px-3 py-1.5 rounded text-sm">Upload</button>

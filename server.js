@@ -48,6 +48,11 @@ const {
   handleMaterialStatus,
   handleQuoteNew,
 } = require('./routes/materials');
+const {
+  handleQuoteImportPage,
+  handleQuoteParseApi,
+  handleQuoteImportConfirmApi,
+} = require('./routes/quote-import');
 const { handleSchedulePage, handleScheduleUpdate, handleScheduleCascade } = require('./routes/schedule');
 const { handleCalculatorsPage } = require('./routes/calculators');
 const {
@@ -141,6 +146,9 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'GET' && pathname === '/materials') {
       return await handleMaterialsPage(req, res, helpers, flash);
+    }
+    if (req.method === 'GET' && pathname === '/materials/import-quote') {
+      return await handleQuoteImportPage(req, res, helpers, flash);
     }
     if (req.method === 'GET' && pathname === '/purchase-orders') {
       return await handlePurchaseOrdersPage(req, res, helpers, flash);
@@ -352,6 +360,12 @@ const server = http.createServer(async (req, res) => {
     // --- POST routes (JSON APIs, used by client-side JS for file upload) ---
     if (req.method === 'POST' && pathname === '/api/receipts/parse') {
       return await handleReceiptParseApi(req, res, helpers);
+    }
+    if (req.method === 'POST' && pathname === '/api/materials/quote-import/parse') {
+      return await handleQuoteParseApi(req, res, helpers);
+    }
+    if (req.method === 'POST' && pathname === '/api/materials/quote-import/confirm') {
+      return await handleQuoteImportConfirmApi(req, res, helpers);
     }
     if (req.method === 'POST' && pathname === '/api/documents/upload') {
       return await handleDocumentUploadApi(req, res, helpers);

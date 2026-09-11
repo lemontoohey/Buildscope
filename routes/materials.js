@@ -115,9 +115,15 @@ async function handleMaterialsPage(req, res, { sendHtml }, flash) {
     .join('\n');
 
   const body = `
-    <h1 class="text-2xl font-bold mb-2">Materials & quantities</h1>
+    <div class="flex items-start justify-between gap-3 flex-wrap mb-2">
+      <h1 class="text-2xl font-bold">Materials & quantities</h1>
+      <a href="/materials/import-quote" class="text-sm rounded border border-[#9b1b15] text-[#9b1b15] hover:bg-[#9b1b15] hover:text-white transition-colors duration-200 px-3 py-1.5">
+        Import a quote →
+      </a>
+    </div>
     <p class="text-sm text-slate-600 mb-6">
-      A starting bill of quantities — quantities and costs here are what you or your supplier entered, not an AI estimate (that's Phase 3). Compare supplier quotes per line before ordering.
+      A starting bill of quantities — quantities and costs here are what you or your supplier entered, not an AI estimate (that's Phase 3). Compare supplier quotes per line before ordering, or
+      <a href="/materials/import-quote" class="text-blue-700 hover:underline">import a past quote</a> to have the AI read its line items for you.
     </p>
 
     <div class="bg-white rounded-lg border border-slate-200 p-4 mb-8 overflow-x-auto">
