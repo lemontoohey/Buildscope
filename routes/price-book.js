@@ -92,7 +92,7 @@ async function handlePriceBookPage(req, res, { sendHtml }, query, flash) {
       </div>
 
       <h2 class="text-lg font-semibold mb-3">Add a rate</h2>
-      <form method="post" action="/price-book/items/new" class="bg-white rounded-lg border border-slate-200 p-4 grid sm:grid-cols-2 lg:grid-cols-6 gap-3 max-w-5xl">
+      <form method="post" action="/price-book/items/new" data-offline-queue="Price book rate" data-offline-reset class="bg-white rounded-lg border border-slate-200 p-4 grid sm:grid-cols-2 lg:grid-cols-6 gap-3 max-w-5xl">
         <select name="supplier_id" required class="rounded border border-slate-300 px-2 py-1.5 text-sm">${supplierOptions}</select>
         <input name="description" required placeholder="Description" class="rounded border border-slate-300 px-2 py-1.5 text-sm lg:col-span-2" />
         <input name="sku" placeholder="SKU" class="rounded border border-slate-300 px-2 py-1.5 text-sm" />

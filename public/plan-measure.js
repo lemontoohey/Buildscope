@@ -216,6 +216,7 @@
           '<div class="text-[11px] text-slate-500 mt-1">' +
           escapeHtml(m.kind) +
           (m.boq_item_id ? ' · in materials' : '') +
+          (String(m.id).indexOf('local-') === 0 ? ' · <span class="text-[#9b1b15]">syncing…</span>' : '') +
           '</div>' +
           '<button type="button" data-del="' +
           m.id +
@@ -242,20 +243,156 @@
       .replace(/>/g, '&gt;');
   }
 
-  async function saveMeasurement(payload) {
-    var res = await fetch('/api/plan-measure/measurements', {
+  // Offline queue for this plan's measurements/scale saves. Distinct from
+  // the generic form-based queue in offline-queue.js because these are
+  // JSON API calls driven by canvas clicks, not <form> submits -- but the
+  // idea is identical: never let a dropped connection silently discard
+  // something the user just drew on the board. Every save is applied to
+  // the on-screen state immediately (optimistic), and only queued for
+  // retry if the network call itself fails.
+  var PENDING_KEY = 'buildscope_plan_measure_pending_' + boot.documentId;
+
+  function readPending() {
+    try {
+      var raw = localStorage.getItem(PENDING_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (err) {
+      return [];
+    }
+  }
+
+  function writePending(list) {
+    try {
+      localStorage.setItem(PENDING_KEY, JSON.stringify(list));
+    } catch (err) {
+      // localStorage full or unavailable -- nothing more we can do here.
+    }
+  }
+
+  function tempId() {
+    return 'local-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+  }
+
+  function pendingBanner() {
+    var pending = readPending();
+    var el = document.getElementById('planMeasurePending');
+    if (pending.length === 0) {
+      if (el) el.remove();
+      return;
+    }
+    if (!el) {
+      el = document.createElement('p');
+      el.id = 'planMeasurePending';
+      el.style.cssText = 'margin-top:4px;font-size:12px;color:#9b1b15;';
+      hint.parentNode.insertBefore(el, hint.nextSibling);
+    }
+    el.textContent =
+      pending.length + ' measurement' + (pending.length === 1 ? '' : 's') +
+      ' saved on this device \u2014 will sync once you\u2019re back online.';
+  }
+
+  function flushPending() {
+    var pending = readPending();
+    if (!pending.length) return;
+    var remaining = [];
+    var chain = Promise.resolve();
+    pending.forEach(function (entry) {
+      chain = chain.then(function () {
+        return fetch(entry.url, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: entry.body,
+        })
+          .then(function (res) { return res.json().catch(function () { return null; }); })
+          .then(function (data) {
+            if (data && data.ok) {
+              if (data.measurement && entry.tempId) {
+                var idx = state.measurements.findIndex(function (m) { return m.id === entry.tempId; });
+                if (idx !== -1) {
+                  state.measurements[idx] = data.measurement;
+                  if (Number(entry.pageNumber) === Number(state.page)) {
+                    renderList();
+                    draw();
+                  }
+                }
+              }
+            } else {
+              remaining.push(entry);
+            }
+          })
+          .catch(function () {
+            remaining.push(entry);
+          });
+      });
+    });
+    chain.then(function () {
+      writePending(remaining);
+      pendingBanner();
+    });
+  }
+
+  window.addEventListener('online', flushPending);
+  setInterval(flushPending, 20000);
+
+  function saveScale(scaleLabel, ppm) {
+    var body = JSON.stringify({
+      document_id: boot.documentId,
+      page_number: state.page,
+      scale_label: scaleLabel,
+      pixels_per_metre: ppm,
+    });
+    fetch('/api/plan-measure/scale', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(Object.assign({ document_id: boot.documentId, page_number: state.page }, payload)),
+      body: body,
+    }).catch(function () {
+      var pending = readPending();
+      pending.push({ pageNumber: state.page, url: '/api/plan-measure/scale', body: body, savedAt: new Date().toISOString() });
+      writePending(pending);
+      pendingBanner();
     });
-    var data = await res.json();
-    if (data.ok) {
-      state.measurements.push(data.measurement);
-      state.draft = [];
-      renderList();
-      draw();
-    } else {
-      hint.textContent = data.error || 'Could not save measurement.';
+  }
+
+  async function saveMeasurement(payload) {
+    var fullPayload = Object.assign({ document_id: boot.documentId, page_number: state.page }, payload);
+    var body = JSON.stringify(fullPayload);
+    var optimistic = Object.assign({}, fullPayload, { id: tempId() });
+
+    // Show it immediately -- whether or not the save actually lands. Never
+    // makes the user wonder if the line they just drew got lost.
+    state.measurements.push(optimistic);
+    state.draft = [];
+    renderList();
+    draw();
+
+    try {
+      var res = await fetch('/api/plan-measure/measurements', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: body,
+      });
+      var data = await res.json();
+      var idx = state.measurements.findIndex(function (m) { return m.id === optimistic.id; });
+      if (data.ok) {
+        if (idx !== -1) state.measurements[idx] = data.measurement;
+        renderList();
+        draw();
+      } else {
+        // Server reachable but rejected it (validation) -- roll back the
+        // optimistic entry rather than leaving a phantom measurement.
+        if (idx !== -1) state.measurements.splice(idx, 1);
+        renderList();
+        draw();
+        hint.textContent = data.error || 'Could not save measurement.';
+      }
+    } catch (err) {
+      // Network failure -- keep the optimistic entry on screen and queue
+      // the save for when connectivity returns, same pattern as the diary.
+      var pending = readPending();
+      pending.push({ tempId: optimistic.id, pageNumber: state.page, url: '/api/plan-measure/measurements', body: body, savedAt: new Date().toISOString() });
+      writePending(pending);
+      pendingBanner();
+      hint.textContent = 'No connection \u2014 measurement saved on this device, will sync once you\u2019re back online.';
     }
   }
 
@@ -275,16 +412,7 @@
       state.scaleLabel = 'Calibrated (' + real + ' m)';
       state.calibrating = false;
       state.draft = [];
-      fetch('/api/plan-measure/scale', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          document_id: boot.documentId,
-          page_number: state.page,
-          scale_label: state.scaleLabel,
-          pixels_per_metre: state.ppm,
-        }),
-      });
+      saveScale(state.scaleLabel, state.ppm);
       updateScaleLabel();
       setHint();
       draw();
@@ -450,16 +578,7 @@
     var dpi = state.renderDpi || 72;
     state.ppm = dpi / (n * 0.0254);
     state.scaleLabel = '1:' + n + ' (72 dpi print)';
-    fetch('/api/plan-measure/scale', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        document_id: boot.documentId,
-        page_number: state.page,
-        scale_label: state.scaleLabel,
-        pixels_per_metre: state.ppm,
-      }),
-    });
+    saveScale(state.scaleLabel, state.ppm);
     updateScaleLabel();
     setHint();
   });
@@ -570,10 +689,24 @@
     resize();
   }
 
+  // Anything that was drawn while offline and never made it to the server
+  // is still sitting in localStorage -- surface it again on reload so a
+  // page refresh (or reopening the app) doesn't make it look lost.
+  readPending().forEach(function (entry) {
+    if (Number(entry.pageNumber) !== Number(state.page) || !entry.tempId) return;
+    try {
+      var payload = JSON.parse(entry.body);
+      state.measurements.push(Object.assign({}, payload, { id: entry.tempId }));
+    } catch (err) {
+      // malformed queued entry -- skip it rather than break the page
+    }
+  });
+
   window.addEventListener('resize', resize);
   updateScaleLabel();
   setHint();
   renderList();
+  pendingBanner();
   loadPlan().catch(function (err) {
     hint.textContent = 'Could not load that plan: ' + err.message;
   });

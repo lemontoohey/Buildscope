@@ -48,9 +48,9 @@ function statusSelect(itemId, current) {
   const options = STATUSES.map(
     (s) => `<option value="${s}" ${s === current ? 'selected' : ''}>${STATUS_LABELS[s]}</option>`
   ).join('');
-  return `<form method="post" action="/materials/status" class="inline">
+  return `<form method="post" action="/materials/status" data-offline-queue="Material status" class="inline">
     <input type="hidden" name="item_id" value="${itemId}" />
-    <select name="status" onchange="this.form.submit()"
+    <select name="status" onchange="this.form.requestSubmit()"
       class="text-xs rounded border border-slate-300 px-2 py-1 ${STATUS_COLORS[current]}">
       ${options}
     </select>
@@ -98,7 +98,7 @@ async function handleMaterialsPage(req, res, { sendHtml }, flash) {
       }
             </summary>
             <div class="mt-2">${quoteRows}</div>
-            <form method="post" action="/materials/quotes/new" class="mt-2 flex flex-wrap gap-1 items-center">
+            <form method="post" action="/materials/quotes/new" data-offline-queue="Supplier quote" data-offline-reset class="mt-2 flex flex-wrap gap-1 items-center">
               <input type="hidden" name="boq_item_id" value="${item.id}" />
               <input type="text" name="supplier" placeholder="Supplier" required
                 class="w-24 rounded border border-slate-300 px-1 py-0.5 text-xs" />
@@ -146,7 +146,7 @@ async function handleMaterialsPage(req, res, { sendHtml }, flash) {
     <div class="bg-white rounded-lg border border-slate-200 p-5 mb-8 max-w-xl">
       <h2 class="font-semibold mb-1">Create a purchase order</h2>
       <p class="text-xs text-slate-500 mb-3">Tick items above, name the supplier, and generate a printable PO.</p>
-      <form method="post" action="/purchase-orders/new" id="poForm" class="flex flex-wrap gap-2 items-center">
+      <form method="post" action="/purchase-orders/new" id="poForm" data-offline-queue="Purchase order" data-offline-reset class="flex flex-wrap gap-2 items-center">
         <input type="text" name="supplier" placeholder="Supplier name" required class="rounded border border-slate-300 px-3 py-2 text-sm flex-1 min-w-[160px]" />
         <input type="text" name="notes" placeholder="Notes (optional)" class="rounded border border-slate-300 px-3 py-2 text-sm flex-1 min-w-[160px]" />
         <div id="poItemIdsHolder"></div>
@@ -170,7 +170,7 @@ async function handleMaterialsPage(req, res, { sendHtml }, flash) {
     </script>
 
     <h2 class="text-lg font-semibold mb-3">Add a BOQ item</h2>
-    <form method="post" action="/materials/new" class="bg-white rounded-lg border border-slate-200 p-6 max-w-2xl grid grid-cols-2 gap-4">
+    <form method="post" action="/materials/new" data-offline-queue="BOQ item" data-offline-reset class="bg-white rounded-lg border border-slate-200 p-6 max-w-2xl grid grid-cols-2 gap-4">
       <div class="col-span-2">
         <label class="block text-sm font-medium mb-1">Description</label>
         <input type="text" name="description" required placeholder="e.g. Colorbond roof sheeting"

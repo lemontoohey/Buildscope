@@ -180,7 +180,7 @@ async function handleSchedulePage(req, res, { sendHtml }, flash) {
       // from lib/layout.js when a stage is genuinely running late.
       const overdue = s.status !== 'done' && s.planned_end && todayIso() > s.planned_end;
 
-      return `<form method="post" action="/schedule/update" class="bg-white rounded-lg border border-slate-200 p-4 mb-3${overdue ? ' card-alert' : ''}">
+      return `<form method="post" action="/schedule/update" data-offline-queue="Schedule update" class="bg-white rounded-lg border border-slate-200 p-4 mb-3${overdue ? ' card-alert' : ''}">
         <input type="hidden" name="stage_id" value="${s.id}" />
         <div class="flex items-center justify-between mb-3">
           <span class="font-semibold">${escapeHtml(s.name)}${dur ? ` <span class="text-xs font-normal text-slate-500">· ${dur} days planned</span>` : ''}</span>
@@ -232,7 +232,7 @@ async function handleSchedulePage(req, res, { sendHtml }, flash) {
       "Overdue" means today is past the planned end date and the stage isn't marked done yet.
     </p>
     ${chart}
-    <form method="post" action="/schedule/cascade" class="bg-slate-50 rounded-lg border border-slate-200 p-4 mb-6 flex flex-wrap gap-3 items-end">
+    <form method="post" action="/schedule/cascade" data-offline-queue="Schedule cascade" class="bg-slate-50 rounded-lg border border-slate-200 p-4 mb-6 flex flex-wrap gap-3 items-end">
       <div>
         <label class="block text-xs text-slate-500 mb-1">Cascade from</label>
         <input type="date" name="start_date" value="${todayIso()}" required class="rounded border border-slate-300 px-2 py-1 text-sm" />

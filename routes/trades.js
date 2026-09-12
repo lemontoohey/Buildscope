@@ -79,7 +79,7 @@ async function handleTradesPage(req, res, { sendHtml }, flash) {
     </div>
 
     <h2 class="text-lg font-semibold mb-3">Add a trade</h2>
-    <form method="post" action="/trades/new" class="bg-white rounded-lg border border-slate-200 p-6 max-w-2xl grid grid-cols-2 gap-4">
+    <form method="post" action="/trades/new" data-offline-queue="Trade" data-offline-reset class="bg-white rounded-lg border border-slate-200 p-6 max-w-2xl grid grid-cols-2 gap-4">
       <div>
         <label class="block text-sm font-medium mb-1">Name / business</label>
         <input type="text" name="name" required class="w-full rounded border border-slate-300 px-3 py-2 text-sm" />

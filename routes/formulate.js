@@ -138,7 +138,7 @@ async function handleFormulatePage(req, res, { sendHtml }, query, flash) {
         ${recipeNav}
         <details class="mt-4 bg-white rounded-lg border border-slate-200 p-3">
           <summary class="text-sm font-medium cursor-pointer">New recipe</summary>
-          <form method="post" action="/formulate/new" class="mt-3 space-y-2 text-sm">
+          <form method="post" action="/formulate/new" data-offline-queue="Recipe" data-offline-reset class="mt-3 space-y-2 text-sm">
             <input name="name" required placeholder="Name" class="w-full rounded border border-slate-300 px-2 py-1" />
             <input name="slug" placeholder="slug (optional)" class="w-full rounded border border-slate-300 px-2 py-1" />
             <textarea name="description" placeholder="What it calculates" class="w-full rounded border border-slate-300 px-2 py-1"></textarea>

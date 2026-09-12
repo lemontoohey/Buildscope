@@ -57,7 +57,7 @@ async function handleSelectionsPage(req, res, { sendHtml }, flash) {
             ${
               isChosen
                 ? ''
-                : `<form method="post" action="/selections/${s.id}/options/${o.id}/choose">
+                : `<form method="post" action="/selections/${s.id}/options/${o.id}/choose" data-offline-queue="Selection choice">
                      <button class="text-xs rounded border border-slate-300 px-2 py-1 bg-white hover:border-slate-400" type="submit">Choose</button>
                    </form>`
             }
@@ -77,15 +77,15 @@ async function handleSelectionsPage(req, res, { sendHtml }, flash) {
             ${s.boqItem ? `<div class="text-xs text-slate-500">Linked to BOQ: ${escapeHtml(s.boqItem.description)}</div>` : ''}
             ${s.due_date ? `<div class="text-xs text-slate-500">Due ${escapeHtml(s.due_date)}</div>` : ''}
           </div>
-          <form method="post" action="/selections/${s.id}/status">
-            <select name="status" onchange="this.form.submit()" class="text-xs rounded border border-slate-300 px-2 py-1 ${STATUS_COLORS[s.status]}">${statusOptions}</select>
+          <form method="post" action="/selections/${s.id}/status" data-offline-queue="Selection status">
+            <select name="status" onchange="this.form.requestSubmit()" class="text-xs rounded border border-slate-300 px-2 py-1 ${STATUS_COLORS[s.status]}">${statusOptions}</select>
           </form>
         </div>
         ${s.notes ? `<p class="text-sm text-slate-600 mb-2">${escapeHtml(s.notes)}</p>` : ''}
         <div class="mt-2">
           ${optionRows || '<p class="text-sm text-slate-500 py-2">No options added yet.</p>'}
         </div>
-        <form method="post" action="/selections/${s.id}/options/new" class="mt-3 flex flex-wrap gap-2 items-end">
+        <form method="post" action="/selections/${s.id}/options/new" data-offline-queue="Selection option" data-offline-reset class="mt-3 flex flex-wrap gap-2 items-end">
           <div>
             <label class="block text-[11px] text-slate-500">Option</label>
             <input type="text" name="label" required placeholder="e.g. Bianco Carrara 600x600" class="rounded border border-slate-300 px-2 py-1 text-sm" />
@@ -118,7 +118,7 @@ async function handleSelectionsPage(req, res, { sendHtml }, flash) {
 
     <div class="bg-white rounded-lg border border-slate-200 p-4 mb-6 max-w-xl">
       <h2 class="font-semibold text-sm mb-3">Add a selection</h2>
-      <form method="post" action="/selections/new" class="space-y-3">
+      <form method="post" action="/selections/new" data-offline-queue="Selection" data-offline-reset class="space-y-3">
         <div>
           <label class="block text-xs text-slate-500 mb-1">Category</label>
           <input type="text" name="category" required placeholder="e.g. Kitchen benchtop" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm" />

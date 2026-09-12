@@ -132,8 +132,8 @@ async function handlePurchaseOrderDetail(req, res, { sendHtml }, id, flash) {
         <div><span class="text-xs text-slate-500">Supplier</span><div class="text-sm font-medium">${escapeHtml(po.supplier)}</div></div>
         <div>
           <span class="text-xs text-slate-500">Status</span>
-          <form method="post" action="/purchase-orders/${po.id}/status">
-            <select name="status" onchange="this.form.submit()" class="text-sm rounded border border-slate-300 px-2 py-1 ${STATUS_COLORS[po.status]}">${statusOptions}</select>
+          <form method="post" action="/purchase-orders/${po.id}/status" data-offline-queue="PO status">
+            <select name="status" onchange="this.form.requestSubmit()" class="text-sm rounded border border-slate-300 px-2 py-1 ${STATUS_COLORS[po.status]}">${statusOptions}</select>
           </form>
         </div>
       </div>

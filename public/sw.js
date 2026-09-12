@@ -1,23 +1,57 @@
-// Build Tracker service worker.
+// Buildscope service worker.
 //
-// Goal: the app should still open (and the diary should still be usable)
-// on a rural site with patchy or no reception. This is deliberately simple
-// — no build step, no Workbox — two strategies only:
+// Goal: as much of the app as possible should still open -- and stay
+// usable -- on a rural site with patchy or no reception. This is
+// deliberately simple -- no build step, no Workbox -- three strategies:
 //
 //   - GET page navigations: network first (so you always see live data
 //     when you have signal), falling back to a cached copy of that same
 //     page, and finally to a small offline notice if it was never cached.
-//   - GET static assets (/public/*, icons, manifest): cache first, with a
-//     background refetch to keep the cache warm.
+//   - GET static assets (/public/*, icons, manifest) AND the binary files
+//     behind an uploaded plan or job photo (/documents/file/*,
+//     /photos/file/*): cache first, with a background refetch to keep the
+//     cache warm. Plans and photos rarely change once uploaded, so this is
+//     the right trade-off -- and it's what actually makes Plan Measure and
+//     the Photos gallery work offline, not just their page shells.
+//   - On install, proactively fetch and cache every main nav route (not
+//     just "/"), so a fresh install works offline without the user first
+//     having to click through every page once while connected.
 //
 // Anything that isn't a GET (form posts, the JSON APIs) is left completely
-// alone and goes straight to the network — offline handling for writes
-// (like new diary entries) is done in public/offline-queue.js instead,
-// where it can be visible to the user rather than silently swallowed here.
-const CACHE_NAME = 'owner-build-tracker-v1';
-const APP_SHELL = [
+// alone and goes straight to the network -- offline handling for writes
+// (new diary entries, BOQ items, schedule updates, and so on) is done in
+// public/offline-queue.js instead, where it can be visible to the user
+// rather than silently swallowed here.
+const CACHE_NAME = 'buildscope-v2';
+
+// Every top-level nav destination, so the app shell works offline right
+// after install, not just on pages someone happened to visit already.
+const NAV_ROUTES = [
   '/',
+  '/budget',
+  '/estimator',
+  '/plan-measure',
+  '/formulate',
+  '/price-book',
+  '/materials',
+  '/materials/import-quote',
+  '/purchase-orders',
+  '/selections',
+  '/calculators',
+  '/schedule',
+  '/trades',
+  '/compliance',
+  '/documents',
+  '/photos',
+  '/diary',
+  '/settings',
+];
+
+const APP_SHELL = [
+  ...NAV_ROUTES,
   '/public/offline-queue.js',
+  '/public/calculators.js',
+  '/public/plan-measure.js',
   '/public/icon-192.png',
   '/public/icon-512.png',
   '/manifest.webmanifest',
@@ -42,7 +76,12 @@ self.addEventListener('activate', (event) => {
 });
 
 function isStaticAsset(url) {
-  return url.pathname.startsWith('/public/') || url.pathname === '/manifest.webmanifest';
+  return (
+    url.pathname.startsWith('/public/') ||
+    url.pathname === '/manifest.webmanifest' ||
+    url.pathname.startsWith('/documents/file/') ||
+    url.pathname.startsWith('/photos/file/')
+  );
 }
 
 self.addEventListener('fetch', (event) => {
@@ -86,7 +125,8 @@ self.addEventListener('fetch', (event) => {
                   '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
                     '<body style="font-family:system-ui;padding:2rem;color:#484848"><h1>You’re offline</h1>' +
                     '<p>This page hasn’t been visited before while online, so there’s nothing saved to show. ' +
-                    'Diary entries you write now will still be saved on this device and sent once you’re back online.</p>' +
+                    'Diary entries, BOQ items and most other forms you fill in now will still be saved on this ' +
+                    'device and sent once you’re back online.</p>' +
                     '<p><a href="/diary">Go to the site diary →</a></p></body>',
                   { headers: { 'content-type': 'text/html; charset=utf-8' } }
                 )

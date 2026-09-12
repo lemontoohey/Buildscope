@@ -135,7 +135,7 @@ async function handleEstimatorPage(req, res, { sendHtml }, flash) {
     </div>
 
     <h2 class="text-lg font-semibold mb-3">Add a job</h2>
-    <form method="post" action="/estimator/new" class="bg-white rounded-lg border border-slate-200 p-4 flex gap-2 max-w-xl mb-8">
+    <form method="post" action="/estimator/new" data-offline-queue="Estimator job" data-offline-reset class="bg-white rounded-lg border border-slate-200 p-4 flex gap-2 max-w-xl mb-8">
       <input
         type="text"
         name="name"
@@ -206,7 +206,7 @@ function attributesForm(job) {
   const datalistOptions = CONSTRUCTION_TYPE_SUGGESTIONS.map((t) => `<option value="${escapeHtml(t)}">`).join('');
 
   return `
-  <form method="post" action="/estimator/${job.id}/update" class="bg-white rounded-lg border border-slate-200 p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+  <form method="post" action="/estimator/${job.id}/update" data-offline-queue="Job details" class="bg-white rounded-lg border border-slate-200 p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
     <div class="md:col-span-2">
       <label class="block text-sm font-medium mb-1">Job name</label>
       <input type="text" name="name" value="${escapeHtml(job.name)}" required class="w-full rounded border border-slate-300 px-3 py-2 text-sm" />
@@ -277,7 +277,7 @@ function statusActions(job) {
   };
   const buttons = (next[job.status] || [])
     .map(
-      ([status, label]) => `<form method="post" action="/estimator/${job.id}/status" class="inline">
+      ([status, label]) => `<form method="post" action="/estimator/${job.id}/status" data-offline-queue="Job status" class="inline">
         <input type="hidden" name="status" value="${status}" />
         <button class="text-sm bg-slate-700 hover:bg-slate-800 text-white px-3 py-1.5 rounded mr-2">${label}</button>
       </form>`
@@ -359,7 +359,7 @@ function lineItemsTable(job, lineItems) {
           <span class="inline-block px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wide ${li.source === 'manual' ? 'bg-slate-100 text-slate-600' : 'bg-blue-50 text-blue-700'}">${li.source === 'manual' ? 'Manual' : 'Computed'}</span>
         </td>
         <td class="py-2 pr-4">
-          <form method="post" action="/estimator/${job.id}/line-items/upsert" class="flex items-center gap-1">
+          <form method="post" action="/estimator/${job.id}/line-items/upsert" data-offline-queue="Line item" class="flex items-center gap-1">
             <input type="hidden" name="line_item_id" value="${li.id}" />
             <input type="hidden" name="category_name" value="${escapeHtml(li.category_name)}" />
             <span class="text-slate-400">$</span>
@@ -399,7 +399,7 @@ function lineItemsTable(job, lineItems) {
       </table>
 
       <h3 class="text-sm font-semibold mb-2">Add a category line</h3>
-      <form method="post" action="/estimator/${job.id}/line-items/upsert" class="flex flex-wrap items-center gap-2">
+      <form method="post" action="/estimator/${job.id}/line-items/upsert" data-offline-queue="Line item" data-offline-reset class="flex flex-wrap items-center gap-2">
         <input list="category-names" type="text" name="category_name" required placeholder="Category" class="rounded border border-slate-300 px-2 py-1.5 text-sm" />
         <datalist id="category-names">${categoryOptions}</datalist>
         <span class="text-slate-400 text-sm">est. $</span>

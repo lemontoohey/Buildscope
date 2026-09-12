@@ -27,7 +27,7 @@ async function handleBudgetPage(req, res, { sendHtml }, flash) {
       return `<tr class="border-b border-slate-100">
         <td class="py-2 pr-4">${escapeHtml(c.name)}</td>
         <td class="py-2 pr-4">
-          <form method="post" action="/budget/update" class="flex items-center gap-2">
+          <form method="post" action="/budget/update" data-offline-queue="Budget update" class="flex items-center gap-2">
             <input type="hidden" name="category_id" value="${c.id}" />
             <span class="text-slate-400">$</span>
             <input
@@ -68,7 +68,7 @@ async function handleBudgetPage(req, res, { sendHtml }, flash) {
     </div>
 
     <h2 class="text-lg font-semibold mb-3">Add a category</h2>
-    <form method="post" action="/budget/new" class="bg-white rounded-lg border border-slate-200 p-4 flex gap-2 max-w-md">
+    <form method="post" action="/budget/new" data-offline-queue="Budget category" data-offline-reset class="bg-white rounded-lg border border-slate-200 p-4 flex gap-2 max-w-md">
       <input
         type="text"
         name="name"

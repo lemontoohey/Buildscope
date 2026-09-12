@@ -74,7 +74,7 @@ async function handleDiaryPage(req, res, { sendHtml }, flash) {
     </div>
 
     <h2 class="text-lg font-semibold mb-3">New entry</h2>
-    <form method="post" action="/diary" id="diaryForm" class="bg-white rounded-lg border border-slate-200 p-6 max-w-lg space-y-4 mb-10">
+    <form method="post" action="/diary" id="diaryForm" data-offline-queue="Diary entry" data-offline-reset data-offline-date-field="entryDate" class="bg-white rounded-lg border border-slate-200 p-6 max-w-lg space-y-4 mb-10">
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium mb-1">Date</label>

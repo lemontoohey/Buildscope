@@ -73,7 +73,7 @@ async function handlePhotosPage(req, res, { sendHtml }, query, flash) {
           </div>
           ${p.caption ? `<p class="text-xs mt-1">${escapeHtml(p.caption)}</p>` : ''}
           ${label ? `<p class="text-[11px] text-blue-700 mt-1">${escapeHtml(label)}</p>` : ''}
-          <form method="post" action="/photos/${p.id}/defect" class="mt-1">
+          <form method="post" action="/photos/${p.id}/defect" data-offline-queue="Photo flag" class="mt-1">
             <button class="text-[11px] underline text-slate-500">${p.is_defect ? 'Unflag defect' : 'Flag as defect'}</button>
           </form>
         </div>

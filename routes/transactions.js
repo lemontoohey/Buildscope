@@ -36,7 +36,7 @@ async function renderTransactionForm({ prefill = {}, flash } = {}) {
     <h1 class="text-2xl font-bold mb-6">Add transaction</h1>
     ${aiNotice}
     ${lineItemsNotice}
-    <form method="post" action="/transactions" class="bg-white rounded-lg border border-slate-200 p-6 max-w-lg space-y-4">
+    <form method="post" action="/transactions" data-offline-queue="Transaction" data-offline-reset class="bg-white rounded-lg border border-slate-200 p-6 max-w-lg space-y-4">
       <input type="hidden" name="document_id" value="${escapeHtml(prefill.document_id || '')}" />
       <input type="hidden" name="ai_generated" value="${prefill.ai_generated ? '1' : '0'}" />
 

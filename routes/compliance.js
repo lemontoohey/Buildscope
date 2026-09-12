@@ -24,7 +24,7 @@ async function handleCompliancePage(req, res, { sendHtml }, flash) {
 
       const rows = regimeItems
         .map(
-          (i) => `<form method="post" action="/compliance/toggle" class="flex items-start gap-2 py-1.5">
+          (i) => `<form method="post" action="/compliance/toggle" data-offline-queue="Compliance check" class="flex items-start gap-2 py-1.5">
             <input type="hidden" name="item_id" value="${i.id}" />
             <input type="hidden" name="next_status" value="${i.status === 'done' ? 'pending' : 'done'}" />
             <button type="submit" class="mt-0.5 w-4 h-4 flex-shrink-0 rounded border ${
@@ -61,7 +61,7 @@ async function handleCompliancePage(req, res, { sendHtml }, flash) {
     ${sections}
 
     <h2 class="text-lg font-semibold mb-3">Add a checklist item</h2>
-    <form method="post" action="/compliance/new" class="bg-white rounded-lg border border-slate-200 p-6 max-w-lg space-y-4">
+    <form method="post" action="/compliance/new" data-offline-queue="Compliance item" data-offline-reset class="bg-white rounded-lg border border-slate-200 p-6 max-w-lg space-y-4">
       <div>
         <label class="block text-sm font-medium mb-1">Regime</label>
         <select name="regime" class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
