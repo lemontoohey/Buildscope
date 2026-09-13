@@ -5,6 +5,11 @@ const path = require('node:path');
 
 require('./env').loadEnv();
 
+const { parseCookies } = require('./lib/http');
+const requestContext = require('./lib/request-context');
+const { getSession } = require('./lib/accounts');
+const authRoutes = require('./routes/auth');
+
 const { sendHtml, sendJson, readJsonBody, redirect, notFound } = require('./lib/http');
 const { handleDashboard, handleDashboardReviewApi } = require('./routes/dashboard');
 const { handleBudgetPage, handleBudgetUpdate, handleBudgetNew } = require('./routes/budget');
@@ -113,6 +118,50 @@ const server = http.createServer(async (req, res) => {
     const query = Object.fromEntries(url.searchParams.entries());
     const flash = query.flash;
     const helpers = { sendHtml, sendJson, readJsonBody };
+
+    // --- Auth gate ----------------------------------------------------
+    // Resolved once, right here, before any route touches data -- every
+    // tenant table read/write in lib/store.js depends on the account id
+    // this sets up in request-context for the rest of the request.
+    const cookies = parseCookies(req);
+    const session = getSession(cookies[authRoutes.SESSION_COOKIE]);
+    const isPublicAsset =
+      pathname.startsWith('/public/') || pathname === '/manifest.webmanifest' || pathname === '/sw.js';
+    const PUBLIC_AUTH_PATHS = new Set([
+      '/login',
+      '/auth/google/start',
+      '/auth/google/callback',
+      '/auth/apple/start',
+      '/auth/apple/callback',
+      '/logout',
+    ]);
+    if (!session && !isPublicAsset && !PUBLIC_AUTH_PATHS.has(pathname)) {
+      return redirect(res, '/login');
+    }
+    if (session && pathname === '/login') {
+      return redirect(res, '/');
+    }
+
+    return await requestContext.run({ accountId: session ? session.account_id : null }, async () => {
+    // --- Auth routes ---
+    if (req.method === 'GET' && pathname === '/login') {
+      return await authRoutes.handleLoginPage(req, res, helpers, query);
+    }
+    if (req.method === 'GET' && pathname === '/auth/google/start') {
+      return await authRoutes.handleGoogleLoginStart(req, res);
+    }
+    if (req.method === 'GET' && pathname === '/auth/google/callback') {
+      return await authRoutes.handleGoogleLoginCallback(req, res, helpers, query);
+    }
+    if (req.method === 'GET' && pathname === '/auth/apple/start') {
+      return await authRoutes.handleAppleLoginStart(req, res);
+    }
+    if (req.method === 'POST' && pathname === '/auth/apple/callback') {
+      return await authRoutes.handleAppleLoginCallback(req, res);
+    }
+    if (req.method === 'POST' && pathname === '/logout') {
+      return await authRoutes.handleLogout(req, res);
+    }
 
     // --- GET routes ---
     if (req.method === 'GET' && pathname === '/') {
@@ -409,6 +458,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     return notFound(res);
+    });
   } catch (err) {
     console.error(err);
     // A handful of store-layer errors are things a non-technical person can

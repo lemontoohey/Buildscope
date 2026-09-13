@@ -304,6 +304,33 @@ db.exec(`
   );
 `);
 
+db.exec(`
+  -- Identity & multi-tenancy. Every table above this comment holds "the
+  -- one build this install tracks" -- added when the app was single-tenant
+  -- (one deployment, one SQLite file, one project). These two tables are
+  -- what turns that into "many people's builds, one shared app": each
+  -- signed-in person is an account, and (see the ensureColumn calls below)
+  -- every tenant-data table gets an account_id column scoping its rows to
+  -- one account. lib/store.js is what actually enforces the scoping on
+  -- every read/write; this file only defines the columns.
+  CREATE TABLE IF NOT EXISTS accounts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    provider TEXT NOT NULL,
+    provider_sub TEXT NOT NULL,
+    email TEXT,
+    name TEXT,
+    created_at TEXT NOT NULL,
+    UNIQUE(provider, provider_sub)
+  );
+
+  CREATE TABLE IF NOT EXISTS sessions (
+    id TEXT PRIMARY KEY,
+    account_id INTEGER NOT NULL REFERENCES accounts(id),
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL
+  );
+`);
+
 // --- Lightweight column migrations -----------------------------------
 // CREATE TABLE IF NOT EXISTS only helps brand-new databases; an already-
 // existing data/app.db (anyone who ran this before today) needs its
@@ -336,6 +363,48 @@ ensureColumn('transactions', 'xero_invoice_id', 'TEXT');
 // being recorded twice if its status flips back and forth.
 ensureColumn('price_book_items', 'source', 'TEXT');
 ensureColumn('purchase_orders', 'price_history_recorded', 'INTEGER NOT NULL DEFAULT 0');
+
+// Multi-tenancy: give every tenant-data table an account_id column (see
+// lib/tenant-tables.js for exactly which tables are "one account's own
+// build" vs shared reference content). Nullable at the column-definition
+// level so this ALTER is safe to run against a database that already has
+// rows in it -- migrateLegacyDataToAccount() below backfills those.
+const { TENANT_TABLES } = require('./lib/tenant-tables');
+for (const table of TENANT_TABLES) {
+  ensureColumn(table, 'account_id', 'INTEGER REFERENCES accounts(id)');
+}
+
+// budget_categories was created with a GLOBAL UNIQUE(name) back when there
+// was only ever one build's categories in the table. With several accounts
+// now sharing the table, every account seeding the same starter category
+// names ("Site establishment & earthworks", ...) would collide on that
+// constraint -- it needs to be UNIQUE(account_id, name) instead. SQLite
+// can't ALTER a column's constraints in place, so this rebuilds the table
+// the one time it's still on the old definition.
+function migrateBudgetCategoriesUniqueConstraint() {
+  const info = db
+    .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='budget_categories'")
+    .get();
+  if (info && /name\s+TEXT\s+NOT\s+NULL\s+UNIQUE/i.test(info.sql)) {
+    db.exec(`
+      ALTER TABLE budget_categories RENAME TO budget_categories_pre_accounts;
+      CREATE TABLE budget_categories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        account_id INTEGER REFERENCES accounts(id),
+        name TEXT NOT NULL,
+        budgeted_cents INTEGER NOT NULL DEFAULT 0,
+        sort_order INTEGER NOT NULL DEFAULT 0
+      );
+      INSERT INTO budget_categories (id, account_id, name, budgeted_cents, sort_order)
+        SELECT id, account_id, name, budgeted_cents, sort_order FROM budget_categories_pre_accounts;
+      DROP TABLE budget_categories_pre_accounts;
+    `);
+  }
+  db.exec(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_budget_categories_account_name ON budget_categories(account_id, name);'
+  );
+}
+migrateBudgetCategoriesUniqueConstraint();
 
 // Seed the Phase 1 budget categories — a reasonable starting point for an
 // Australian owner-build, only if the table is empty, so re-running the
@@ -427,31 +496,7 @@ const DEFAULT_COMPLIANCE = [
   ['Septic / wastewater', 'Service contract set up for ongoing maintenance'],
 ];
 
-function seed() {
-  const catCount = db.prepare('SELECT COUNT(*) AS n FROM budget_categories').get();
-  if (catCount.n === 0) {
-    const insertCat = db.prepare(
-      'INSERT INTO budget_categories (name, budgeted_cents, sort_order) VALUES (?, 0, ?)'
-    );
-    DEFAULT_CATEGORIES.forEach((name, i) => insertCat.run(name, i));
-  }
-
-  const stageCount = db.prepare('SELECT COUNT(*) AS n FROM schedule_stages').get();
-  if (stageCount.n === 0) {
-    const insertStage = db.prepare(
-      'INSERT INTO schedule_stages (name, sort_order, status) VALUES (?, ?, \'not_started\')'
-    );
-    DEFAULT_STAGES.forEach((name, i) => insertStage.run(name, i));
-  }
-
-  const complianceCount = db.prepare('SELECT COUNT(*) AS n FROM compliance_items').get();
-  if (complianceCount.n === 0) {
-    const insertItem = db.prepare(
-      "INSERT INTO compliance_items (regime, item, status, sort_order) VALUES (?, ?, 'pending', ?)"
-    );
-    DEFAULT_COMPLIANCE.forEach(([regime, item], i) => insertItem.run(regime, item, i));
-  }
-
+function seedGlobalReferenceCatalogue() {
   const supplierCount = db.prepare('SELECT COUNT(*) AS n FROM suppliers').get();
   if (supplierCount.n === 0) {
     const { buildEstimatingTables } = require('./lib/estimating-seed');
@@ -510,50 +555,114 @@ function seed() {
       );
     }
   }
+}
 
-  // Job Estimator demo data — a handful of invented past jobs so the
-  // matching engine has something to demonstrate against out of the box.
-  // See lib/estimator-seed.js for the "these numbers are made up, replace
-  // them" warning. Only seeded once, same guard as everything above.
-  const estimateJobCount = db.prepare('SELECT COUNT(*) AS n FROM estimate_jobs').get();
-  if (estimateJobCount.n === 0) {
-    const { buildEstimatorTables } = require('./lib/estimator-seed');
-    const seeded = buildEstimatorTables();
-    const insertJob = db.prepare(
-      `INSERT INTO estimate_jobs
-        (id, name, status, description, floor_area_m2, storeys, construction_type, quality_level, site_conditions, region, client_name, estimated_total_cents, estimated_confidence, actual_total_cents, notes, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+// Seeds one brand-new account with the same starting point a fresh local
+// install used to give everyone: the default budget categories, the
+// standard stage sequence, the NSW owner-build compliance checklist, and a
+// few demo Job Estimator entries. Called once, right when lib/accounts.js
+// creates the account -- never on every boot, unlike the function above --
+// these are real per-account rows, not a shared catalogue.
+function seedAccountDefaults(accountId) {
+  const insertCat = db.prepare(
+    'INSERT INTO budget_categories (account_id, name, budgeted_cents, sort_order) VALUES (?, ?, 0, ?)'
+  );
+  DEFAULT_CATEGORIES.forEach((name, i) => insertCat.run(accountId, name, i));
+
+  const insertStage = db.prepare(
+    "INSERT INTO schedule_stages (account_id, name, sort_order, status) VALUES (?, ?, ?, 'not_started')"
+  );
+  DEFAULT_STAGES.forEach((name, i) => insertStage.run(accountId, name, i));
+
+  const insertItem = db.prepare(
+    "INSERT INTO compliance_items (account_id, regime, item, status, sort_order) VALUES (?, ?, ?, 'pending', ?)"
+  );
+  DEFAULT_COMPLIANCE.forEach(([regime, item], i) => insertItem.run(accountId, regime, item, i));
+
+  // Demo Job Estimator data -- same invented jobs a fresh local install
+  // ships with (see lib/estimator-seed.js), reseeded per account since
+  // this is closer to "your job-costing history" than shared reference
+  // content. IDs are NOT reused from the seed generator (they'd collide
+  // with another account's rows in the same shared table) -- let SQLite
+  // assign real ids and remember the seed-id -> real-id mapping so the
+  // line items can point at the right job.
+  const { buildEstimatorTables } = require('./lib/estimator-seed');
+  const seeded = buildEstimatorTables();
+  const jobIdMap = new Map();
+  const insertJob = db.prepare(
+    `INSERT INTO estimate_jobs
+      (account_id, name, status, description, floor_area_m2, storeys, construction_type, quality_level, site_conditions, region, client_name, estimated_total_cents, estimated_confidence, actual_total_cents, notes, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const j of seeded.estimate_jobs) {
+    const result = insertJob.run(
+      accountId,
+      j.name,
+      j.status,
+      j.description,
+      j.floor_area_m2,
+      j.storeys,
+      j.construction_type,
+      j.quality_level,
+      j.site_conditions,
+      j.region,
+      j.client_name,
+      j.estimated_total_cents,
+      j.estimated_confidence,
+      j.actual_total_cents,
+      j.notes,
+      j.created_at,
+      j.updated_at
     );
-    for (const j of seeded.estimate_jobs) {
-      insertJob.run(
-        j.id,
-        j.name,
-        j.status,
-        j.description,
-        j.floor_area_m2,
-        j.storeys,
-        j.construction_type,
-        j.quality_level,
-        j.site_conditions,
-        j.region,
-        j.client_name,
-        j.estimated_total_cents,
-        j.estimated_confidence,
-        j.actual_total_cents,
-        j.notes,
-        j.created_at,
-        j.updated_at
-      );
-    }
-    const insertLineItem = db.prepare(
-      'INSERT INTO estimate_line_items (id, job_id, category_name, estimated_cents, actual_cents, source, notes, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    jobIdMap.set(j.id, result.lastInsertRowid);
+  }
+  const insertLineItem = db.prepare(
+    'INSERT INTO estimate_line_items (account_id, job_id, category_name, estimated_cents, actual_cents, source, notes, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  );
+  for (const li of seeded.estimate_line_items) {
+    const realJobId = jobIdMap.get(li.job_id);
+    if (realJobId === undefined) continue;
+    insertLineItem.run(
+      accountId,
+      realJobId,
+      li.category_name,
+      li.estimated_cents,
+      li.actual_cents,
+      li.source,
+      li.notes,
+      li.sort_order
     );
-    for (const li of seeded.estimate_line_items) {
-      insertLineItem.run(li.id, li.job_id, li.category_name, li.estimated_cents, li.actual_cents, li.source, li.notes, li.sort_order);
-    }
   }
 }
 
-seed();
+// One-time bridge from the single-tenant era: if this database already has
+// build data but no accounts yet, it predates multi-tenancy. Rather than
+// guess who it belongs to, park it under one unclaimed "legacy" account --
+// lib/accounts.js hands that account to whoever logs in first, on the
+// assumption that's you reconnecting to your own existing build. Anyone
+// who signs in after that gets a normal brand-new (empty) account instead.
+function migrateLegacyDataToAccount() {
+  const accountCount = db.prepare('SELECT COUNT(*) AS n FROM accounts').get().n;
+  if (accountCount > 0) return;
 
-module.exports = { db };
+  const hasLegacyData = [...TENANT_TABLES].some((table) => {
+    const row = db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE account_id IS NULL`).get();
+    return row.n > 0;
+  });
+  if (!hasLegacyData) return;
+
+  const now = new Date().toISOString();
+  const result = db
+    .prepare('INSERT INTO accounts (provider, provider_sub, email, name, created_at) VALUES (?, ?, ?, ?, ?)')
+    .run('legacy', 'legacy-' + Date.now(), null, 'Existing build (unclaimed)', now);
+  const legacyAccountId = result.lastInsertRowid;
+
+  for (const table of TENANT_TABLES) {
+    db.exec(`UPDATE ${table} SET account_id = ${legacyAccountId} WHERE account_id IS NULL`);
+  }
+}
+
+seedGlobalReferenceCatalogue();
+migrateLegacyDataToAccount();
+
+module.exports = { db, seedAccountDefaults };

@@ -31,6 +31,38 @@ For auto-restart on file changes during development:
 node --watch server.js
 ```
 
+## Signing in
+
+Buildscope requires signing in — with Google or Apple — before it shows anything. Each signed-in person gets their own separate account with its own budget, diary, materials, schedule, everything: nobody else who signs in can see it. Under the hood this is one shared app (still just SQLite, still zero extra infrastructure) with every table scoped to whoever's logged in — see `lib/store.js` and `lib/tenant-tables.js` if you want the details.
+
+**The very first person to sign in claims whatever build data already exists** in `data/app.db` (if you were using this single-user, before accounts existed, that data didn't just vanish — it's parked under an unclaimed account until someone signs in). So sign in yourself first, before sharing the login link with anyone else — the second and third person to sign in each get a brand-new, empty build, seeded the same way a fresh install always has been (default categories, stages, compliance checklist).
+
+Set up at least one of Google or Apple sign-in below before anyone can get in.
+
+### Setting up Google sign-in
+
+If you've already set up "Connect Google Drive" (below), this is one extra step, not a whole new project:
+
+1. In the same Google Cloud Console OAuth client you created for Drive, add one more entry under **Authorized redirect URIs**: `http://localhost:3000/auth/google/callback` (and your live URL's equivalent once you have one, e.g. `https://buildscope-zyeh.onrender.com/auth/google/callback`).
+2. `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` in `.env` are reused as-is — no new keys needed.
+3. Only set `GOOGLE_LOGIN_REDIRECT_URI` in `.env` if you're not running on `localhost:3000` — it must exactly match the redirect URI you just added in step 1.
+
+If you haven't set up Google Drive at all yet, follow "Turning on the Google Drive option" below first — it creates the same `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` this needs too.
+
+### Turning on Apple Sign-In
+
+This one needs its own one-time setup in Apple's developer portal, and an Apple Developer Program membership (US$99/year) if you don't already have one:
+
+1. Go to https://developer.account.apple.com and enrol in the Apple Developer Program if you haven't already.
+2. **Certificates, Identifiers & Profiles → Identifiers → +** → register an **App ID** for this app if you don't have one (any bundle-style identifier, e.g. `com.buildscope.app`), with "Sign In with Apple" checked under Capabilities.
+3. **Identifiers → +** again → this time choose **Services IDs** → register one (e.g. `com.buildscope.login`) → this is your `APPLE_SERVICES_ID`. Configure it for "Sign In with Apple," and under its domains/return URLs add your domain and `https://<your-live-url>/auth/apple/callback` (Apple requires a real HTTPS domain here — `localhost` won't validate, so local testing of the Apple button specifically has to wait until you have a live URL).
+4. **Keys → +** → check "Sign In with Apple" → create it. Download the `.p8` file it gives you **immediately — Apple only lets you download it once.** Note the Key ID shown next to it — that's your `APPLE_KEY_ID`.
+5. Your Team ID (`APPLE_TEAM_ID`) is shown at the top right of the developer portal on every page.
+6. Set all four in `.env` (or your host's environment variables): `APPLE_TEAM_ID`, `APPLE_SERVICES_ID`, `APPLE_KEY_ID`, and `APPLE_PRIVATE_KEY` (the full contents of the `.p8` file — if your host's env var UI collapses newlines, single-line it with literal `\n` sequences; the code un-escapes those automatically).
+7. Set `APPLE_LOGIN_REDIRECT_URI` to your live URL's callback, matching step 3 exactly.
+
+Until all four `APPLE_*` variables are set, the Apple button simply doesn't appear on the sign-in page — nothing breaks, it just stays Google-only.
+
 ## Turning on AI receipt parsing (and plan takeoff, diary assistant, estimate review)
 
 Easiest way: open the app, go to **Settings**, pick a provider (Anthropic or OpenAI), and paste in your own API key. It works immediately — no restart, no file editing.
@@ -49,6 +81,8 @@ Go to **Settings** in the app to choose. There are two options shown by default,
 - **Google Drive** — click "Connect Google Drive," sign in with your own Google account, done. Your data is saved as one file in your own Drive. This app can only ever see that one file — nothing else in your Drive. The trade-off: if you open the app on two computers at the same time, the second one to save wins (there's no merge) — fine for one person editing from one place at a time, not built for simultaneous multi-device editing.
 
 (A Supabase/Postgres backend is also built in — `supabase/schema.sql` and the `store` code both still work — but it isn't shown as an option on the Settings page, to keep the choice simple day to day. If you ever want it back, it's a couple of lines in `routes/settings.js`.)
+
+**Now that several accounts share this one app, treat the backend-switch buttons on Settings with care.** They still work exactly as before, but they change the *whole app's* backend for *every* signed-in account at once, not just the account clicking the button — the per-account isolation described in "Signing in" above applies to the tenant-data tables inside whichever backend is active, not to which backend is active. In practice: leave it on "This computer only" (the shared SQLite file, which is what per-account scoping was actually built and tested against) unless you've thought through what switching means for everyone else's data too.
 
 Uploaded files (receipts, approvals, contracts, etc.) follow the same choice: on "This computer only" they're saved in `data/documents/`; on Google Drive they're uploaded there too, so they survive a server restart.
 
