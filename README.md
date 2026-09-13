@@ -33,11 +33,17 @@ node --watch server.js
 
 ## Signing in
 
-Buildscope requires signing in — with Google or Apple — before it shows anything. Each signed-in person gets their own separate account with its own budget, diary, materials, schedule, everything: nobody else who signs in can see it. Under the hood this is one shared app (still just SQLite, still zero extra infrastructure) with every table scoped to whoever's logged in — see `lib/store.js` and `lib/tenant-tables.js` if you want the details.
+Buildscope requires signing in before it shows anything — with an email and password (works immediately, no setup), or with Google or Apple if you set those up too. Each signed-in person gets their own separate account with its own budget, diary, materials, schedule, everything: nobody else who signs in can see it. Under the hood this is one shared app (still just SQLite, still zero extra infrastructure) with every table scoped to whoever's logged in — see `lib/store.js` and `lib/tenant-tables.js` if you want the details.
 
 **The very first person to sign in claims whatever build data already exists** in `data/app.db` (if you were using this single-user, before accounts existed, that data didn't just vanish — it's parked under an unclaimed account until someone signs in). So sign in yourself first, before sharing the login link with anyone else — the second and third person to sign in each get a brand-new, empty build, seeded the same way a fresh install always has been (default categories, stages, compliance checklist).
 
-Set up at least one of Google or Apple sign-in below before anyone can get in.
+Email + password works with no setup at all — see below. Google and Apple are optional extras on top of it.
+
+### Email + password sign-in
+
+Always on, no configuration needed — this is what makes it possible for someone to use Buildscope without you (the person running the deployment) having anything set up for them, e.g. if you haven't got Google/Apple sign-in configured or can't afford to keep an Apple Developer Program subscription running. Anyone can create an account from the **Create an account** link on the sign-in page with just an email and password (minimum 8 characters).
+
+Two things this doesn't have, worth knowing about given it's just three people using this: there's no "forgot password" flow (if someone forgets theirs, you'd need to reset it by hand in `data/app.db`), and there's no rate-limiting on login attempts. Both are fine at this scale, but wouldn't be if this app ever had a public sign-up page and a larger, unfamiliar user base.
 
 ### Setting up Google sign-in
 
@@ -61,7 +67,7 @@ This one needs its own one-time setup in Apple's developer portal, and an Apple 
 6. Set all four in `.env` (or your host's environment variables): `APPLE_TEAM_ID`, `APPLE_SERVICES_ID`, `APPLE_KEY_ID`, and `APPLE_PRIVATE_KEY` (the full contents of the `.p8` file — if your host's env var UI collapses newlines, single-line it with literal `\n` sequences; the code un-escapes those automatically).
 7. Set `APPLE_LOGIN_REDIRECT_URI` to your live URL's callback, matching step 3 exactly.
 
-Until all four `APPLE_*` variables are set, the Apple button simply doesn't appear on the sign-in page — nothing breaks, it just stays Google-only.
+Until all four `APPLE_*` variables are set, the Apple button simply doesn't appear on the sign-in page — nothing breaks, sign-in just falls back to Google (if that's configured) and email + password (which always works).
 
 ## Turning on AI receipt parsing (and plan takeoff, diary assistant, estimate review)
 

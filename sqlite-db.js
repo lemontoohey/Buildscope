@@ -364,6 +364,12 @@ ensureColumn('transactions', 'xero_invoice_id', 'TEXT');
 ensureColumn('price_book_items', 'source', 'TEXT');
 ensureColumn('purchase_orders', 'price_history_recorded', 'INTEGER NOT NULL DEFAULT 0');
 
+// Email + password sign-in: an account created via /signup has
+// provider='password' and provider_sub = its normalised email, with
+// the scrypt hash living here. Accounts created via Google/Apple leave
+// this NULL -- they never have a password to check.
+ensureColumn('accounts', 'password_hash', 'TEXT');
+
 // Multi-tenancy: give every tenant-data table an account_id column (see
 // lib/tenant-tables.js for exactly which tables are "one account's own
 // build" vs shared reference content). Nullable at the column-definition

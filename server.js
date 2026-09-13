@@ -129,16 +129,19 @@ const server = http.createServer(async (req, res) => {
       pathname.startsWith('/public/') || pathname === '/manifest.webmanifest' || pathname === '/sw.js';
     const PUBLIC_AUTH_PATHS = new Set([
       '/login',
+      '/signup',
       '/auth/google/start',
       '/auth/google/callback',
       '/auth/apple/start',
       '/auth/apple/callback',
+      '/auth/password/login',
+      '/auth/password/signup',
       '/logout',
     ]);
     if (!session && !isPublicAsset && !PUBLIC_AUTH_PATHS.has(pathname)) {
       return redirect(res, '/login');
     }
-    if (session && pathname === '/login') {
+    if (session && (pathname === '/login' || pathname === '/signup')) {
       return redirect(res, '/');
     }
 
@@ -146,6 +149,15 @@ const server = http.createServer(async (req, res) => {
     // --- Auth routes ---
     if (req.method === 'GET' && pathname === '/login') {
       return await authRoutes.handleLoginPage(req, res, helpers, query);
+    }
+    if (req.method === 'GET' && pathname === '/signup') {
+      return await authRoutes.handleSignupPage(req, res, helpers, query);
+    }
+    if (req.method === 'POST' && pathname === '/auth/password/login') {
+      return await authRoutes.handlePasswordLogin(req, res);
+    }
+    if (req.method === 'POST' && pathname === '/auth/password/signup') {
+      return await authRoutes.handlePasswordSignup(req, res);
     }
     if (req.method === 'GET' && pathname === '/auth/google/start') {
       return await authRoutes.handleGoogleLoginStart(req, res);

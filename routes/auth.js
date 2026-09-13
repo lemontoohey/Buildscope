@@ -7,13 +7,24 @@ const crypto = require('node:crypto');
 const { redirect, sendHtml, readFormBody, parseCookies, setCookie, clearCookie } = require('../lib/http');
 const identityGoogle = require('../lib/identity-google');
 const identityApple = require('../lib/identity-apple');
-const { findOrCreateAccountForIdentity, createSession, destroySession } = require('../lib/accounts');
+const {
+  findOrCreateAccountForIdentity,
+  signUpWithPassword,
+  verifyPasswordLogin,
+  createSession,
+  destroySession,
+} = require('../lib/accounts');
 
 const SESSION_COOKIE = 'bs_session';
 const STATE_COOKIE = 'bs_oauth_state';
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days, matches lib/accounts.js's SESSION_TTL_DAYS
 
-function renderLoginPage({ error } = {}) {
+const FIELD_CLASS =
+  'w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2f1b4c]/30';
+const PRIMARY_BUTTON_CLASS =
+  'flex items-center justify-center gap-2 w-full bg-[#2f1b4c] text-white px-4 py-2.5 rounded-lg font-medium hover:bg-[#3d2361] transition-all duration-200 ease-out hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]';
+
+function renderOauthButtons() {
   const googleReady = identityGoogle.isConfigured();
   const appleReady = identityApple.isConfigured();
   const buttons = [];
@@ -29,9 +40,18 @@ function renderLoginPage({ error } = {}) {
       Continue with Apple
     </a>`);
   }
-  if (!buttons.length) {
-    buttons.push(`<p class="text-sm text-stone-600">Sign-in isn't configured on this deployment yet -- see the README's "Setting up sign-in" section.</p>`);
-  }
+  if (!buttons.length) return '';
+  return `<div class="space-y-3 mb-4">
+        ${buttons.join('\n        ')}
+      </div>
+      <div class="flex items-center gap-3 my-4">
+        <div class="h-px flex-1 bg-stone-200"></div>
+        <span class="text-xs text-stone-400 uppercase tracking-wide">or</span>
+        <div class="h-px flex-1 bg-stone-200"></div>
+      </div>`;
+}
+
+function renderLoginPage({ error } = {}) {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -46,9 +66,60 @@ function renderLoginPage({ error } = {}) {
       <h1 class="text-2xl font-semibold text-[#2f1b4c] mb-1">Buildscope</h1>
       <p class="text-sm text-stone-600 mb-6">Sign in to get to your build.</p>
       ${error ? `<div class="mb-4 text-sm bg-red-50 border border-red-200 text-red-800 rounded-lg px-3 py-2">${escapeHtml(error)}</div>` : ''}
-      <div class="space-y-3">
-        ${buttons.join('\n        ')}
-      </div>
+      ${renderOauthButtons()}
+      <form method="POST" action="/auth/password/login" class="space-y-3">
+        <div>
+          <label class="block text-xs font-medium text-stone-600 mb-1" for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="email" required class="${FIELD_CLASS}" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-stone-600 mb-1" for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required class="${FIELD_CLASS}" />
+        </div>
+        <button type="submit" class="${PRIMARY_BUTTON_CLASS}">Sign in</button>
+      </form>
+      <p class="text-sm text-stone-600 mt-5 text-center">New here? <a href="/signup" class="text-[#2f1b4c] font-medium hover:underline">Create an account</a></p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function renderSignupPage({ error, email } = {}) {
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Create account - Buildscope</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen flex items-center justify-center bg-[#efe9df]">
+  <div class="w-full max-w-sm mx-auto px-6">
+    <div class="bg-white rounded-2xl shadow-lg border border-stone-200 p-8">
+      <h1 class="text-2xl font-semibold text-[#2f1b4c] mb-1">Buildscope</h1>
+      <p class="text-sm text-stone-600 mb-6">Create an account with an email and password.</p>
+      ${error ? `<div class="mb-4 text-sm bg-red-50 border border-red-200 text-red-800 rounded-lg px-3 py-2">${escapeHtml(error)}</div>` : ''}
+      <form method="POST" action="/auth/password/signup" class="space-y-3">
+        <div>
+          <label class="block text-xs font-medium text-stone-600 mb-1" for="name">Name (optional)</label>
+          <input id="name" name="name" type="text" autocomplete="name" class="${FIELD_CLASS}" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-stone-600 mb-1" for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="email" required value="${escapeHtml(email || '')}" class="${FIELD_CLASS}" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-stone-600 mb-1" for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="new-password" required minlength="8" class="${FIELD_CLASS}" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-stone-600 mb-1" for="confirm">Confirm password</label>
+          <input id="confirm" name="confirm" type="password" autocomplete="new-password" required minlength="8" class="${FIELD_CLASS}" />
+        </div>
+        <button type="submit" class="${PRIMARY_BUTTON_CLASS}">Create account</button>
+      </form>
+      <p class="text-sm text-stone-600 mt-5 text-center">Already have an account? <a href="/login" class="text-[#2f1b4c] font-medium hover:underline">Sign in</a></p>
     </div>
   </div>
 </body>
@@ -61,6 +132,46 @@ function escapeHtml(str) {
 
 async function handleLoginPage(req, res, helpers, query) {
   sendHtml(res, renderLoginPage({ error: query && query.error }));
+}
+
+async function handleSignupPage(req, res, helpers, query) {
+  sendHtml(res, renderSignupPage({ error: query && query.error, email: query && query.email }));
+}
+
+async function handlePasswordLogin(req, res) {
+  let body;
+  try {
+    body = await readFormBody(req);
+  } catch {
+    return redirect(res, '/login?error=' + encodeURIComponent('Could not read the sign-in form.'));
+  }
+  const account = verifyPasswordLogin({ email: body.email, password: body.password });
+  if (!account) {
+    return redirect(res, '/login?error=' + encodeURIComponent('Incorrect email or password.'));
+  }
+  await completeLogin(req, res, account);
+}
+
+async function handlePasswordSignup(req, res) {
+  let body;
+  try {
+    body = await readFormBody(req);
+  } catch {
+    return redirect(res, '/signup?error=' + encodeURIComponent('Could not read the signup form.'));
+  }
+  const { email, password, confirm, name } = body;
+  if (password !== confirm) {
+    return redirect(
+      res,
+      '/signup?error=' + encodeURIComponent('Passwords do not match.') + '&email=' + encodeURIComponent(email || '')
+    );
+  }
+  try {
+    const account = signUpWithPassword({ email, password, name });
+    await completeLogin(req, res, account);
+  } catch (err) {
+    redirect(res, '/signup?error=' + encodeURIComponent(err.message) + '&email=' + encodeURIComponent(email || ''));
+  }
 }
 
 function startOauth(res, identityModule, providerLabel) {
@@ -150,6 +261,9 @@ async function handleLogout(req, res) {
 module.exports = {
   SESSION_COOKIE,
   handleLoginPage,
+  handleSignupPage,
+  handlePasswordLogin,
+  handlePasswordSignup,
   handleGoogleLoginStart,
   handleGoogleLoginCallback,
   handleAppleLoginStart,
